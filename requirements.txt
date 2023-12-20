@@ -1,0 +1,4 @@
+opencv-python==4.8.1.78
+pyensign==0.12.1b0
+streamlit==1.29.0
+yt-dlp==2023.11.16
