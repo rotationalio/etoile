@@ -48,9 +48,11 @@ class FigureDetector:
         self.show = show
         if self.show:
             cv2.namedWindow('FigureDetector')
+
+    def resize(self, frame):
+        return cv2.resize(frame, (640, 480))
     
     def preprocess(self, frame):
-        frame = cv2.resize(frame, (640, 480))
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         frame = cv2.GaussianBlur(frame, (5, 5), 0)
         return frame
@@ -95,15 +97,16 @@ class FigureDetector:
                 break
 
             # Preprocess the video frame, applying transformations to make it easier to detect figures.
-            frame = self.preprocess(frame)
+            frame = self.resize(frame)
+            gray = self.preprocess(frame)
 
             # Detect the figures in the frame
             seen = set()
             if avg is not None:
-                avg, rects = self.detect_rects(avg, frame)
+                avg, rects = self.detect_rects(avg, gray)
                 for r in rects:
                     x, y, w, h = r
-                    cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
                     midpoint = (x + w // 2, y + h // 2)
 
                     # Check if the figure is already on screen
@@ -121,7 +124,7 @@ class FigureDetector:
                         on_screen.append(Figure(x, y, w, h))
                         seen.add(on_screen[-1].id)
             else:
-                avg = frame.copy().astype('float')
+                avg = gray.copy().astype('float')
                 continue
 
             # Update the state of the figures
@@ -130,7 +133,7 @@ class FigureDetector:
                     f.change_state(State.EXIT)
 
             # Return figures that changed state
-            yield [f for f in on_screen if f.prev_state is None or f.state != f.prev_state]
+            yield [f for f in on_screen if f.prev_state is None or f.state != f.prev_state], frame
 
             # Remove figures that have exited the screen
             on_screen = [f for f in on_screen if f.state != State.EXIT]

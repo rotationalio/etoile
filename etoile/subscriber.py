@@ -1,7 +1,9 @@
 import json
 import time
-from datetime import datetime
+import cv2
 import pandas as pd
+import numpy as np
+from datetime import datetime
 from pyensign.ensign import Ensign
 from pyensign.utils.pbtime import to_datetime
 
@@ -12,12 +14,22 @@ class TrafficSubscriber:
     Subscribe to traffic updates and return aggregated data.
     """
 
-    def __init__(self, topic="figure-updates-json", cred_path=""):
+    def __init__(self, topic="figure-updates-json", frames_topic="detection-frames", cred_path=""):
         self.ensign = Ensign(cred_path=cred_path)
         self.topic = topic
+        self.frames_topic = frames_topic
         self.vehicles = {}
         self.start = time.time()
         self.total_vehicles = 0
+
+    async def frames(self):
+        """
+        Subscribe to the video frames topic, yield decoded frames.
+        """
+            
+        async for event in self.ensign.subscribe(self.frames_topic):
+            frame = cv2.imdecode(np.frombuffer(event.data, np.uint8), cv2.IMREAD_COLOR)
+            yield frame
 
     async def updates(self):
         """
@@ -28,7 +40,6 @@ class TrafficSubscriber:
             updates = json.loads(event.data)
             for update in updates:
                 self.update_vehicle(update["id"], State.parse(update["state"]))
-            yield self.vehicle_rate()
 
     async def daily_counts(self):
         """
@@ -64,5 +75,5 @@ class TrafficSubscriber:
 
     def vehicle_rate(self):
         now = datetime.now()
-        rate = (self.total_vehicles / (now.timestamp() - self.start)) / 60
-        return now, rate
+        rate = (self.total_vehicles / (now.timestamp() - self.start))
+        return now.strftime("%H:%M:%S"), rate
